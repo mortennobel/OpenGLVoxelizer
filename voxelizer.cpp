@@ -36,37 +36,83 @@ vec3 normalize(vec3 value){
 
 
 Voxelizer::Voxelizer(std::function<float(vec3i)> getDensityFn, int domainMin, int domainMax, float isolevel)
-    :getDensityFn(getDensityFn), isolevel(isolevel)
+    :getDensityFn(getDensityFn), isolevel(isolevel), domainMin(domainMin), domainMax(domainMax)
 {
-    // get vertexData
-    for (int x=domainMin; x<domainMax; x++) {
-        for (int y=domainMin; y<domainMax; y++) {
-            for (int z = domainMin; z<domainMax; z++) {
-                auto createdTriangles = march({{x,y,z}});
-                for (auto vertex : createdTriangles){
-                    vertexPositions.push_back(vertex);
-                }
-            }
-        }
-    }
-
-    // get normals
-    for (auto vertexPosition : vertexPositions){
-        bool computeGradient = true;
-        if (computeGradient){
-            vertexNormals.push_back( getGradient(vertexPosition));
-        } else {
-            // when sphere compute normal by normalizing vertex position
-            vertexNormals.push_back( normalize(vertexPosition));
-        }
-    }
 }
 
-vec3 Voxelizer::getGradient(vec3 pos){
+vec3 Voxelizer::getGradientLinear(vec3 pos){
     float x = pos[0];
     float y = pos[1];
     float z = pos[2];
-    vec3 res{{0.0f,0.0f,0.0f}};
+
+    int xi = (int)x;
+    float xf = x - xi;
+    int yi = (int)y;
+    float yf = y - yi;
+    int zi = (int)z;
+    float zf = z - zi;
+    int xim = (int)(x + 0.5f);
+    float xfm = x + 0.5f - xi;
+    int yim = (int)(y + 0.5f);
+    float yfm = y + 0.5f - yi;
+    int zim = (int)(z + 0.5f);
+    float zfm = z + 0.5f - zi;
+
+    vec3 res;
+
+    float xd0 = yf*(          zf *getDensityFn({{xim - 1, yi+1, zi+1}})
+                    + (1.0f - zf)*getDensityFn({{xim - 1, yi+1, zi}}))
+                +(1.0f - yf)*(zf *getDensityFn({{xim - 1, yi  , zi+1}})
+                    + (1.0f - zf)*getDensityFn({{xim - 1, yi  , zi}}));
+    float xd1 = yf*(          zf *getDensityFn({{xim,     yi+1, zi+1}})
+                    + (1.0f - zf)*getDensityFn({{xim,     yi+1, zi}}))
+                +(1.0f - yf)*(zf *getDensityFn({{xim,     yi  , zi+1}})
+                    + (1.0f - zf)*getDensityFn({{xim,     yi  , zi}}));
+    float xd2 = yf*(          zf *getDensityFn({{xim + 1, yi+1, zi+1}})
+                    + (1.0f - zf)*getDensityFn({{xim + 1, yi+1, zi}}))
+                +(1.0f - yf)*(zf *getDensityFn({{xim + 1, yi  , zi+1}})
+                    + (1.0f - zf)*getDensityFn({{xim + 1, yi  , zi}}));
+    res[0] = (xd1 - xd0) * (1.0f - xfm) + (xd2 - xd1) * xfm;
+
+    float yd0 = xf*(          zf *getDensityFn({{xi+1, yim-1, zi+1}})
+                    + (1.0f - zf)*getDensityFn({{xi+1, yim-1, zi}}))
+                +(1.0f - xf)*(zf *getDensityFn({{xi  , yim-1, zi+1}})
+                    + (1.0f - zf)*getDensityFn({{xi  , yim  , zi}}));
+    float yd1 = xf*(          zf *getDensityFn({{xi+1, yim  , zi+1}})
+                    + (1.0f - zf)*getDensityFn({{xi+1, yim  , zi}}))
+                +(1.0f - xf)*(zf *getDensityFn({{xi  , yim  , zi+1}})
+                    + (1.0f - zf)*getDensityFn({{xi  , yim  , zi}}));
+    float yd2 = xf*(          zf *getDensityFn({{xi+1, yim+1, zi+1}})
+                    + (1.0f - zf)*getDensityFn({{xi+1, yim+1, zi}}))
+                +(1.0f - xf)*(zf *getDensityFn({{xi  , yim+1, zi+1}})
+                    + (1.0f - zf)*getDensityFn({{xi  , yim+1, zi}}));
+    res[1] = (yd1 - yd0) * (1.0f - yfm) + (yd2 - yd1) * yfm;
+
+    float zd0 = xf*(          yf *getDensityFn({{xi+1, yi+1, zim-1}})
+                    + (1.0f - yf)*getDensityFn({{xi+1, yi  , zim-1}}))
+                +(1.0f - xf)*(yf *getDensityFn({{xi,   yi+1, zim-1}})
+                    + (1.0f - yf)*getDensityFn({{xi,   yi  , zim-1}}));
+    float zd1 = xf*(          yf *getDensityFn({{xi+1, yi+1, zim}})
+                    + (1.0f - yf)*getDensityFn({{xi+1, yi  , zim}}))
+                +(1.0f - xf)*(yf *getDensityFn({{xi,   yi+1, zim}})
+                    + (1.0f - yf)*getDensityFn({{xi,   yi  , zim}}));
+    float zd2 = xf*(          yf *getDensityFn({{xi+1, yi+1, zim+1}})
+                    + (1.0f - yf)*getDensityFn({{xi+1, yi  , zim+1}}))
+                +(1.0f - xf)*(yf *getDensityFn({{xi,   yi+1, zim+1}})
+                    + (1.0f - yf)*getDensityFn({{xi,   yi  , zim+1}}));
+    res[2] = (zd1 - zd0) * (1.0f - zfm) + (zd2 - zd1) * zfm;
+    if (res[0] != 0 && res[1] != 0 && res[2] != 0){
+        res = normalize(res);
+    }
+    return res;
+}
+
+// linear interpolation (based on http://stackoverflow.com/a/21323490/420250 by MooseBoys)
+vec3 Voxelizer::getGradientComponentWiseLinear(vec3 pos){
+    float x = pos[0];
+    float y = pos[1];
+    float z = pos[2];
+    vec3 res;
     float dist = 0.5f;
     // x
     int xi = (int)(x + dist);
@@ -511,8 +557,35 @@ std::vector<vec3> Voxelizer::march(vec3i pos){
 }
 
 std::vector<float> Voxelizer::getData(){
+    std::vector<vec3> vertexPositions;
+    std::vector<vec3> vertexNormals;
+
+    // get vertexData
+    for (int x=domainMin; x<domainMax; x++) {
+        for (int y=domainMin; y<domainMax; y++) {
+            for (int z = domainMin; z<domainMax; z++) {
+                auto createdTriangles = march({{x,y,z}});
+                for (auto vertex : createdTriangles){
+                    vertexPositions.push_back(vertex);
+                }
+            }
+        }
+    }
+
+    // get normals
+    for (auto vertexPosition : vertexPositions){
+        if (interpolation == Interpolation::ComponentWiseLinear){
+            vertexNormals.push_back( getGradientComponentWiseLinear(vertexPosition));
+        } else if (interpolation == Interpolation::Analytic){
+            // when sphere compute normal by normalizing vertex position
+            vertexNormals.push_back( normalize(vertexPosition));
+        } else if (interpolation == Interpolation::Linear){
+            vertexNormals.push_back( getGradientLinear(vertexPosition));
+        }
+    }
+
     std::vector<float> res;
-    for (int i=0;i<vertexPositions.size();i++){
+    for (size_t i=0;i<vertexPositions.size();i++){
         for (auto v : vertexPositions[i]){
             res.push_back(v);
         }

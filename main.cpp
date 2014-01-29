@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
         return (float)sqrt(x*x + y*y + z*z)-radius;
     };
 
-    Voxelizer voxelizer(sphere);
+    std::unique_ptr<Voxelizer> voxelizer = std::unique_ptr<Voxelizer>(new Voxelizer(sphere));
 
     QGLFormat glFormat;
     glFormat.setVersion( 3, 2 );
@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
     glFormat.setSampleBuffers( false );
     glFormat.setDepth(true);
     glFormat.setDepthBufferSize(16);
-    MyWidget w( glFormat, &voxelizer );
+    MyWidget w( glFormat, move(voxelizer) );
     w.show();
 
     return a.exec();
