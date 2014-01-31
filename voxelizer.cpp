@@ -77,7 +77,7 @@ vec3 Voxelizer::getGradientLinear(vec3 pos){
     float yd0 = xf*(          zf *getDensityFn({{xi+1, yim-1, zi+1}})
                     + (1.0f - zf)*getDensityFn({{xi+1, yim-1, zi}}))
                 +(1.0f - xf)*(zf *getDensityFn({{xi  , yim-1, zi+1}})
-                    + (1.0f - zf)*getDensityFn({{xi  , yim  , zi}}));
+                    + (1.0f - zf)*getDensityFn({{xi  , yim-1, zi}}));
     float yd1 = xf*(          zf *getDensityFn({{xi+1, yim  , zi+1}})
                     + (1.0f - zf)*getDensityFn({{xi+1, yim  , zi}}))
                 +(1.0f - xf)*(zf *getDensityFn({{xi  , yim  , zi+1}})
