@@ -36,6 +36,9 @@ void MyWidget::keyPressEvent(QKeyEvent *event){
         case '2':
             voxelizer->setInterpolation(Interpolation::Linear);
         break;
+        case '3':
+            voxelizer->setInterpolation(Interpolation::Sobel);
+        break;
         }
         updateData();
     }
@@ -137,9 +140,10 @@ void MyWidget::updateTitle(){
     QString titles[] = {
         "Analytic",
         "Component-wise Linear",
-        "Linear"
+        "Linear",
+        "Sobel"
     };
-    for (int i=0;i<3;i++){
+    for (int i=0;i<4;i++){
         if (static_cast<int>(voxelizer->getInterpolation())==i){
             title = title +"["+('0'+i)+"] ";
         } else {

@@ -10,7 +10,8 @@ typedef std::array<int,3> vec3i;
 enum class Interpolation {
     Analytic,
     ComponentWiseLinear,
-    Linear
+    Linear,
+    Sobel
 };
 
 class Voxelizer
@@ -23,7 +24,9 @@ public:
 private:
     std::vector<vec3> march(vec3i pos);
     vec3 getGradientLinear(vec3 pos);
+    float getLinearInterpolate(vec3 pos);
     vec3 getGradientComponentWiseLinear(vec3 pos);
+    vec3 getGradientSobel(vec3 pos);
     std::function<float(vec3i)> getDensityFn;
     float isolevel;
     int domainMin;

@@ -40,22 +40,88 @@ Voxelizer::Voxelizer(std::function<float(vec3i)> getDensityFn, int domainMin, in
 {
 }
 
+vec3 Voxelizer::getGradientSobel(vec3 pos){
+    // get values
+    float x = pos[0];
+    float y = pos[1];
+    float z = pos[2];
+
+    float l = 0.5;
+
+    // get values between 0 and 2) here we assume that pos is at position 1.
+    float   value000 = getLinearInterpolate({{x-l, y-l, z-l}}),
+            value001 = getLinearInterpolate({{x-l, y-l, z  }}),
+            value002 = getLinearInterpolate({{x-l, y-l, z+l}}),
+            value100 = getLinearInterpolate({{x  , y-l, z-l}}),
+            value101 = getLinearInterpolate({{x  , y-l, z  }}),
+            value102 = getLinearInterpolate({{x  , y-l, z+l}}),
+            value200 = getLinearInterpolate({{x+l, y-l, z-l}}),
+            value201 = getLinearInterpolate({{x+l, y-l, z  }}),
+            value202 = getLinearInterpolate({{x+l, y-l, z+l}}),
+            value010 = getLinearInterpolate({{x-l, y  , z-l}}),
+            value011 = getLinearInterpolate({{x-l, y  , z  }}),
+            value012 = getLinearInterpolate({{x-l, y  , z+l}}),
+            value110 = getLinearInterpolate({{x  , y  , z-l}}),
+            // value111 = getLinearInterpolate({{x  , y  , z  }}), // unused
+            value112 = getLinearInterpolate({{x  , y  , z+l}}),
+            value210 = getLinearInterpolate({{x+l, y  , z-l}}),
+            value211 = getLinearInterpolate({{x+l, y  , z  }}),
+            value212 = getLinearInterpolate({{x+l, y  , z+l}}),
+            value020 = getLinearInterpolate({{x-l, y+l, z-l}}),
+            value021 = getLinearInterpolate({{x-l, y+l, z  }}),
+            value022 = getLinearInterpolate({{x-l, y+l, z+l}}),
+            value120 = getLinearInterpolate({{x  , y+l, z-l}}),
+            value121 = getLinearInterpolate({{x  , y+l, z  }}),
+            value122 = getLinearInterpolate({{x  , y+l, z+l}}),
+            value220 = getLinearInterpolate({{x+l, y+l, z-l}}),
+            value221 = getLinearInterpolate({{x+l, y+l, z  }}),
+            value222 = getLinearInterpolate({{x+l, y+l, z+l}});
+
+    auto res = vec3({{value000+2*value001+value002+
+                2*value010+4*value011+2*value012+
+                value020+2*value021+value022+
+                -value200-2*value201-value202+
+                -2*value210-4*value211-2*value212+
+                -value220-2*value221-value222,
+
+                   value000+2*value001  +value002+
+                 2*value100+4*value101+2*value102+
+                   value200+2*value201  +value202+
+                  -value020-2*value021  -value022+
+                -2*value120-4*value121-2*value122+
+                  -value220-2*value221  -value222,
+
+                   value000+2*value010  +value020+
+                 2*value100+4*value110+2*value120+
+                   value200+2*value210  +value220+
+                  -value002-2*value012  -value022+
+                -2*value102-4*value112-2*value122+
+                  -value202-2*value212  -value222
+                }});
+    if (res[0] != 0 && res[1] != 0 && res[2] != 0){
+        res = normalize(res);
+        for (int i=0;i<3;i++)
+            res[i] = -res[i];
+    }
+    return res;
+}
+
 vec3 Voxelizer::getGradientLinear(vec3 pos){
     float x = pos[0];
     float y = pos[1];
     float z = pos[2];
 
-    int xi = (int)x;
+    int xi = floor(x);
     float xf = x - xi;
-    int yi = (int)y;
+    int yi = floor(y);
     float yf = y - yi;
-    int zi = (int)z;
+    int zi = floor(z);
     float zf = z - zi;
-    int xim = (int)(x + 0.5f);
+    int xim = floor(x + 0.5f);
     float xfm = x + 0.5f - xi;
-    int yim = (int)(y + 0.5f);
+    int yim = floor(y + 0.5f);
     float yfm = y + 0.5f - yi;
-    int zim = (int)(z + 0.5f);
+    int zim = floor(z + 0.5f);
     float zfm = z + 0.5f - zi;
 
     vec3 res;
@@ -107,6 +173,30 @@ vec3 Voxelizer::getGradientLinear(vec3 pos){
     return res;
 }
 
+float Voxelizer::getLinearInterpolate(vec3 pos){
+    int x = floor(pos[0]);
+    int y = floor(pos[1]);
+    int z = floor(pos[2]);
+    float x0 = (float)fmod(x,1.0);
+    float x1 = 1.0f-x0;
+    float y0 = (float)fmod(y,1.0);
+    float y1 = 1.0f-y0;
+    float z0 = (float)fmod(z,1.0);
+    float z1 = 1.0f-z0;
+
+    float x000 = getDensityFn({{x,y,z}});
+    float x001 = getDensityFn({{x,y,z+1}});
+    float x010 = getDensityFn({{x,y+1,z}});
+    float x011 = getDensityFn({{x,y+1,z+1}});
+    float x100 = getDensityFn({{x,y,z}});
+    float x101 = getDensityFn({{x,y,z+1}});
+    float x110 = getDensityFn({{x,y+1,z}});
+    float x111 = getDensityFn({{x,y+1,z+1}});
+
+    return ((x000*z0+x001*z1)*y0+(x010*z0+x011*z1)*y1)*x0+
+           ((x100*z0+x101*z1)*y0+(x110*z0+x111*z1)*y1)*x1;
+}
+
 // linear interpolation (based on http://stackoverflow.com/a/21323490/420250 by MooseBoys)
 vec3 Voxelizer::getGradientComponentWiseLinear(vec3 pos){
     float x = pos[0];
@@ -115,21 +205,21 @@ vec3 Voxelizer::getGradientComponentWiseLinear(vec3 pos){
     vec3 res;
     float dist = 0.5f;
     // x
-    int xi = (int)(x + dist);
+    int xi = floor(x + dist);
     float xf = x + dist - xi;
     float xd0 = getDensityFn({{xi - 1, (int)y, (int)z}});
     float xd1 = getDensityFn({{xi, (int)y, (int)z}});
     float xd2 = getDensityFn({{xi + 1, (int)y, (int)z}});
     res[0] = (xd1 - xd0) * (1.0f - xf) + (xd2 - xd1) * xf; // lerp
     // y
-    int yi = (int)(y + dist);
+    int yi = floor(y + dist);
     float yf = y + dist - yi;
     float yd0 = getDensityFn({{(int)x, yi - 1, (int)z}});
     float yd1 = getDensityFn({{(int)x, yi, (int)z}});
     float yd2 = getDensityFn({{(int)x, yi + 1, (int)z}});
     res[1] = (yd1 - yd0) * (dist - yf) + (yd2 - yd1) * yf; // lerp
     // z
-    int zi = (int)(z + dist);
+    int zi = floor(z + dist);
     float zf = z + dist - zi;
     float zd0 = getDensityFn({{(int)x, (int)y, zi - 1}});
     float zd1 = getDensityFn({{(int)x, (int)y, zi}});
@@ -581,6 +671,8 @@ std::vector<float> Voxelizer::getData(){
             vertexNormals.push_back( normalize(vertexPosition));
         } else if (interpolation == Interpolation::Linear){
             vertexNormals.push_back( getGradientLinear(vertexPosition));
+        } else if (interpolation == Interpolation::Sobel){
+            vertexNormals.push_back( getGradientSobel(vertexPosition));
         }
     }
 
