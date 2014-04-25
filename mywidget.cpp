@@ -11,10 +11,11 @@
 #include <cmath>
 
 using namespace std;
+using namespace glm;
 
 MyWidget::MyWidget( const QGLFormat& format, std::unique_ptr<Voxelizer>&& voxelizer, QWidget* parent )
     : QGLWidget( format, parent ),
-      m_vertexBuffer( 0 ), voxelizer(std::move(voxelizer)), m_timer_p( new QTimer( this ) )
+      vertexArrayObject( 0 ), elementIndexBuffer(0), voxelizer(std::move(voxelizer)), m_timer_p( new QTimer( this ) )
 {
     // When the timer goes off, run our function to change the t value.
     connect( m_timer_p, SIGNAL( timeout() ), SLOT( update() ) );
@@ -120,10 +121,22 @@ GLuint MyWidget::prepareShaderProgram( const QString& vertexShaderPath,
 }
 
 void MyWidget::updateData(){
-    vector<float> points = voxelizer->getData();
+    std::vector<vec3> vertexPositions;
+    std::vector<vec3> vertexNormals;
+    std::vector<int> indices;
+    voxelizer->getData(vertexPositions, vertexNormals, indices);
+    std::vector<float> points;
+    for (size_t i=0;i<vertexPositions.size();i++){
+        for (size_t j=0;j<3;j++){
+            points.push_back(vertexPositions[i][j]);
+        }
+        for (size_t j=0;j<3;j++){
+            points.push_back(vertexNormals[i][j]);
+        }
+    }
     int sizeOfVertex = 6;
     triangels = points.size()/sizeOfVertex;
-    glBindVertexArray(m_vertexBuffer);
+    glBindVertexArray(vertexArrayObject);
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
     glBufferData(GL_ARRAY_BUFFER, triangels * sizeOfVertex * sizeof(float), &(points[0]), GL_STATIC_DRAW);
     GLuint positionAttribute = glGetAttribLocation(m_shader, "vertex");
@@ -132,6 +145,9 @@ void MyWidget::updateData(){
     glVertexAttribPointer(positionAttribute, 3, GL_FLOAT, GL_FALSE, sizeof(float)*sizeOfVertex, (const GLvoid *)0);
     glEnableVertexAttribArray(normalAttribute);
     glVertexAttribPointer(normalAttribute, 3, GL_FLOAT, GL_FALSE, sizeof(float)*sizeOfVertex, (const GLvoid *)(sizeof(float)*3));
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementIndexBuffer);
+    vertexIndices = indices.size();
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, vertexIndices * sizeof(int), &(indices[0]), GL_STATIC_DRAW);
     updateTitle();
 }
 
@@ -156,13 +172,17 @@ void MyWidget::updateTitle(){
 
 void MyWidget::initializeGL()
 {
-    glSetup();
+    // must initialize opengl functions
+    initializeOpenGLFunctions();
+
     glEnable(GL_DEPTH_TEST);
     // Prepare a complete shader program...
     m_shader = prepareShaderProgram( ":/simple.vert", ":/simple.frag" );
 
-    glGenVertexArrays(1, &m_vertexBuffer);
+    glGenVertexArrays(1, &vertexArrayObject);
     glGenBuffers(1, &vertexBuffer);
+    glGenBuffers(1, &elementIndexBuffer);
+
     updateData();
 }
 
@@ -191,6 +211,6 @@ void MyWidget::paintGL()
     glUniformMatrix4fv(mvpLocation, 1, false, mvp);
 
     // Draw stuff
-    glDrawArrays( GL_TRIANGLES, 0, triangels  );
+    glDrawElements(GL_TRIANGLES, vertexIndices,  GL_UNSIGNED_INT, 0);
 }
 

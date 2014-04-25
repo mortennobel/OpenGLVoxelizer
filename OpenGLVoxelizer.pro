@@ -25,13 +25,14 @@ TEMPLATE = app
 
 SOURCES += main.cpp \
     mywidget.cpp \
-    glheader.cpp \
-    voxelizer.cpp
+    voxelizer.cpp \
+    mc_space_partition.cpp
 
 HEADERS  += \
     mywidget.h \
-    glheader.h \
-    voxelizer.h
+    voxelizer.h \
+    glm/*.hpp \
+    mc_space_partition.h
 
 OTHER_FILES += \
     simple.frag \

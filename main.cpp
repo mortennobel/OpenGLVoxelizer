@@ -3,17 +3,19 @@
 #include <QtGui>
 #include <voxelizer.h>
 
+using namespace glm;
+
 int main(int argc, char *argv[])
 {
     QApplication a( argc, argv );
 
-    auto sphere = [](vec3i pos){
+    auto sphere = [](ivec3 pos){
         int x = pos[0], y =  pos[1], z = pos[2];
         float radius = 8.0f;
-        return (float)sqrt(x*x + y*y + z*z)-radius;
+        return (float)std::sqrt(x*x + y*y + z*z)-radius;
     };
 
-    std::unique_ptr<Voxelizer> voxelizer = std::unique_ptr<Voxelizer>(new Voxelizer(sphere));
+    std::unique_ptr<Voxelizer> voxelizer = std::unique_ptr<Voxelizer>(new Voxelizer(sphere, glm::ivec3{-10}, glm::ivec3{10}));
 
     QGLFormat glFormat;
     glFormat.setVersion( 3, 2 );

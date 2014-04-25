@@ -4,8 +4,7 @@
 #include <vector>
 #include <array>
 
-typedef std::array<float,3> vec3;
-typedef std::array<int,3> vec3i;
+#include "glm/glm.hpp"
 
 enum class Interpolation {
     Analytic,
@@ -17,19 +16,19 @@ enum class Interpolation {
 class Voxelizer
 {
 public:
-    Voxelizer(std::function<float(vec3i)> getDensityFn, int domainMin = -10, int domainMax = 10, float isolevel = 1.0f);
-    std::vector<float> getData();
+    Voxelizer(std::function<float(glm::ivec3)> getDensityFn, glm::ivec3 domainMin, glm::ivec3 domainMax, float isolevel = 1.0f);
+    void getData(std::vector<glm::vec3> &vertexPositions, std::vector<glm::vec3> &vertexNormals, std::vector<int> &indices);
     void setInterpolation(Interpolation i){ interpolation = i; }
     Interpolation getInterpolation(){ return interpolation; }
 private:
-    std::vector<vec3> march(vec3i pos);
-    vec3 getGradientLinear(vec3 pos);
-    float getLinearInterpolate(vec3 pos);
-    vec3 getGradientComponentWiseLinear(vec3 pos);
-    vec3 getGradientSobel(vec3 pos);
-    std::function<float(vec3i)> getDensityFn;
+    std::vector<glm::vec3> march(glm::ivec3 pos);
+    glm::vec3 getGradientLinear(glm::vec3 pos);
+    float getLinearInterpolate(glm::vec3 pos);
+    glm::vec3 getGradientComponentWiseLinear(glm::vec3 pos);
+    glm::vec3 getGradientSobel(glm::vec3 pos);
+    std::function<float(glm::ivec3)> getDensityFn;
     float isolevel;
-    int domainMin;
-    int domainMax;
+    glm::ivec3 domainMin;
+    glm::ivec3 domainMax;
     Interpolation interpolation = Interpolation::ComponentWiseLinear;
 };
