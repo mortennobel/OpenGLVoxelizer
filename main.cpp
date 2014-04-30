@@ -11,11 +11,11 @@ int main(int argc, char *argv[])
 
     auto sphere = [](ivec3 pos){
         int x = pos[0], y =  pos[1], z = pos[2];
-        float radius = 8.0f;
+        float radius = 9.00f;
         return (float)std::sqrt(x*x + y*y + z*z)-radius;
     };
 
-    std::unique_ptr<Voxelizer> voxelizer = std::unique_ptr<Voxelizer>(new Voxelizer(sphere, glm::ivec3{-10}, glm::ivec3{10}));
+    std::unique_ptr<Voxelizer> voxelizer = std::unique_ptr<Voxelizer>(new Voxelizer(sphere, glm::ivec3{-10}, glm::ivec3{11}, glm::ivec3{1,1,1}));
 
     QGLFormat glFormat;
     glFormat.setVersion( 3, 2 );

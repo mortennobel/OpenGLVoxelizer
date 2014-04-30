@@ -6,19 +6,16 @@
 //  Copyright (c) 2014 Morten Nobel-Joergensen. All rights reserved.
 //
 
-#pragma once
-
 #include <iostream>
 #include <vector>
 #include "glm/glm.hpp"
-
+#include <limits>
 class MCSpacePartition {
-    
+
 public:
-    MCSpacePartition(int width, int height, float epsilogDistance = 0.01f);
+    MCSpacePartition(int width, int height, double epsilogDistance = 0.0002f);
     ~MCSpacePartition();
-    
-    
+
     void insertPoint(glm::vec3 point, int index, glm::ivec3  voxelIndex);
     int findPoint(glm::vec3  point, glm::ivec3  voxelIndex);
 private:
@@ -30,12 +27,10 @@ private:
         int index;
         int z;
     };
-    
-	float epsilogDistanceSqr;
+
+    double epsilogDistanceSqr;
     std::vector<MCPair> *data;
-    int width;
-    int height;
     int width1;
     int height1;
-	int lastZ = -1;
+    int lastZ = INT_MIN;
 };

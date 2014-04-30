@@ -1,5 +1,7 @@
 #include "voxelizer.h"
 #include "mc_space_partition.h"
+#include <glm/gtx/vector_angle.hpp>
+#include <glm/gtx/norm.hpp>
 
 #include <cmath>
 
@@ -7,8 +9,8 @@ using namespace std;
 using namespace glm;
 
 
-Voxelizer::Voxelizer(std::function<float(ivec3)> getDensityFn, glm::ivec3 domainMin, glm::ivec3 domainMax, float isolevel)
-    :getDensityFn(getDensityFn), isolevel(isolevel), domainMin(domainMin), domainMax(domainMax)
+Voxelizer::Voxelizer(std::function<float(ivec3)> getDensityFn, glm::ivec3 domainMin, glm::ivec3 domainMax, glm::ivec3 mirrorAxis, float isolevel)
+        :getDensityFn(getDensityFn), isolevel(isolevel), domainMin(domainMin), domainMax(domainMax), mirrorAxis(mirrorAxis)
 {
 }
 
@@ -70,12 +72,10 @@ vec3 Voxelizer::getGradientSobel(vec3 pos){
                 -2*value102-4*value112-2*value122+
                   -value202-2*value212  -value222
                 );
-    if (res[0] != 0 && res[1] != 0 && res[2] != 0){
+    if (res[0] != 0 || res[1] != 0 || res[2] != 0){
         res = normalize(res);
-        for (int i=0;i<3;i++)
-            res[i] = -res[i];
     }
-    return res;
+    return -res; // note flipped normal here
 }
 
 vec3 Voxelizer::getGradientLinear(vec3 pos){
@@ -83,63 +83,63 @@ vec3 Voxelizer::getGradientLinear(vec3 pos){
     float y = pos[1];
     float z = pos[2];
 
-    int xi = floor(x);
+    int xi = (int) floor(x);
     float xf = x - xi;
-    int yi = floor(y);
+    int yi = (int) floor(y);
     float yf = y - yi;
-    int zi = floor(z);
+    int zi = (int) floor(z);
     float zf = z - zi;
-    int xim = floor(x + 0.5f);
+    int xim = (int) floor(x + 0.5f);
     float xfm = x + 0.5f - xi;
-    int yim = floor(y + 0.5f);
+    int yim = (int) floor(y + 0.5f);
     float yfm = y + 0.5f - yi;
-    int zim = floor(z + 0.5f);
+    int zim = (int) floor(z + 0.5f);
     float zfm = z + 0.5f - zi;
 
     vec3 res;
 
-    float xd0 = yf*(          zf *getDensityFn(ivec3{xim - 1, yi+1, zi+1})
-                    + (1.0f - zf)*getDensityFn(ivec3{xim - 1, yi+1, zi}))
-                +(1.0f - yf)*(zf *getDensityFn(ivec3{xim - 1, yi  , zi+1})
-                    + (1.0f - zf)*getDensityFn(ivec3{xim - 1, yi  , zi}));
-    float xd1 = yf*(          zf *getDensityFn(ivec3{xim,     yi+1, zi+1})
-                    + (1.0f - zf)*getDensityFn(ivec3{xim,     yi+1, zi}))
-                +(1.0f - yf)*(zf *getDensityFn(ivec3{xim,     yi  , zi+1})
-                    + (1.0f - zf)*getDensityFn(ivec3{xim,     yi  , zi}));
-    float xd2 = yf*(          zf *getDensityFn(ivec3{xim + 1, yi+1, zi+1})
-                    + (1.0f - zf)*getDensityFn(ivec3{xim + 1, yi+1, zi}))
-                +(1.0f - yf)*(zf *getDensityFn(ivec3{xim + 1, yi  , zi+1})
-                    + (1.0f - zf)*getDensityFn(ivec3{xim + 1, yi  , zi}));
+    float xd0 = yf*(          zf *getDensity(ivec3{xim - 1, yi+1, zi+1})
+                    + (1.0f - zf)*getDensity(ivec3{xim - 1, yi+1, zi}))
+                +(1.0f - yf)*(zf *getDensity(ivec3{xim - 1, yi  , zi+1})
+                    + (1.0f - zf)*getDensity(ivec3{xim - 1, yi  , zi}));
+    float xd1 = yf*(          zf *getDensity(ivec3{xim,     yi+1, zi+1})
+                    + (1.0f - zf)*getDensity(ivec3{xim,     yi+1, zi}))
+                +(1.0f - yf)*(zf *getDensity(ivec3{xim,     yi  , zi+1})
+                    + (1.0f - zf)*getDensity(ivec3{xim,     yi  , zi}));
+    float xd2 = yf*(          zf *getDensity(ivec3{xim + 1, yi+1, zi+1})
+                    + (1.0f - zf)*getDensity(ivec3{xim + 1, yi+1, zi}))
+                +(1.0f - yf)*(zf *getDensity(ivec3{xim + 1, yi  , zi+1})
+                    + (1.0f - zf)*getDensity(ivec3{xim + 1, yi  , zi}));
     res[0] = (xd1 - xd0) * (1.0f - xfm) + (xd2 - xd1) * xfm;
 
-    float yd0 = xf*(          zf *getDensityFn(ivec3{xi+1, yim-1, zi+1})
-                    + (1.0f - zf)*getDensityFn(ivec3{xi+1, yim-1, zi}))
-                +(1.0f - xf)*(zf *getDensityFn(ivec3{xi  , yim-1, zi+1})
-                    + (1.0f - zf)*getDensityFn(ivec3{xi  , yim-1, zi}));
-    float yd1 = xf*(          zf *getDensityFn(ivec3{xi+1, yim  , zi+1})
-                    + (1.0f - zf)*getDensityFn(ivec3{xi+1, yim  , zi}))
-                +(1.0f - xf)*(zf *getDensityFn(ivec3{xi  , yim  , zi+1})
-                    + (1.0f - zf)*getDensityFn(ivec3{xi  , yim  , zi}));
-    float yd2 = xf*(          zf *getDensityFn(ivec3{xi+1, yim+1, zi+1})
-                    + (1.0f - zf)*getDensityFn(ivec3{xi+1, yim+1, zi}))
-                +(1.0f - xf)*(zf *getDensityFn(ivec3{xi  , yim+1, zi+1})
-                    + (1.0f - zf)*getDensityFn(ivec3{xi  , yim+1, zi}));
+    float yd0 = xf*(          zf *getDensity(ivec3{xi+1, yim-1, zi+1})
+                    + (1.0f - zf)*getDensity(ivec3{xi+1, yim-1, zi}))
+                +(1.0f - xf)*(zf *getDensity(ivec3{xi  , yim-1, zi+1})
+                    + (1.0f - zf)*getDensity(ivec3{xi  , yim-1, zi}));
+    float yd1 = xf*(          zf *getDensity(ivec3{xi+1, yim  , zi+1})
+                    + (1.0f - zf)*getDensity(ivec3{xi+1, yim  , zi}))
+                +(1.0f - xf)*(zf *getDensity(ivec3{xi  , yim  , zi+1})
+                    + (1.0f - zf)*getDensity(ivec3{xi  , yim  , zi}));
+    float yd2 = xf*(          zf *getDensity(ivec3{xi+1, yim+1, zi+1})
+                    + (1.0f - zf)*getDensity(ivec3{xi+1, yim+1, zi}))
+                +(1.0f - xf)*(zf *getDensity(ivec3{xi  , yim+1, zi+1})
+                    + (1.0f - zf)*getDensity(ivec3{xi  , yim+1, zi}));
     res[1] = (yd1 - yd0) * (1.0f - yfm) + (yd2 - yd1) * yfm;
 
-    float zd0 = xf*(          yf *getDensityFn(ivec3{xi+1, yi+1, zim-1})
-                    + (1.0f - yf)*getDensityFn(ivec3{xi+1, yi  , zim-1}))
-                +(1.0f - xf)*(yf *getDensityFn(ivec3{xi,   yi+1, zim-1})
-                    + (1.0f - yf)*getDensityFn(ivec3{xi,   yi  , zim-1}));
-    float zd1 = xf*(          yf *getDensityFn(ivec3{xi+1, yi+1, zim})
-                    + (1.0f - yf)*getDensityFn(ivec3{xi+1, yi  , zim}))
-                +(1.0f - xf)*(yf *getDensityFn(ivec3{xi,   yi+1, zim})
-                    + (1.0f - yf)*getDensityFn(ivec3{xi,   yi  , zim}));
-    float zd2 = xf*(          yf *getDensityFn(ivec3{xi+1, yi+1, zim+1})
-                    + (1.0f - yf)*getDensityFn(ivec3{xi+1, yi  , zim+1}))
-                +(1.0f - xf)*(yf *getDensityFn(ivec3{xi,   yi+1, zim+1})
-                    + (1.0f - yf)*getDensityFn(ivec3{xi,   yi  , zim+1}));
+    float zd0 = xf*(          yf *getDensity(ivec3{xi+1, yi+1, zim-1})
+                    + (1.0f - yf)*getDensity(ivec3{xi+1, yi  , zim-1}))
+                +(1.0f - xf)*(yf *getDensity(ivec3{xi,   yi+1, zim-1})
+                    + (1.0f - yf)*getDensity(ivec3{xi,   yi  , zim-1}));
+    float zd1 = xf*(          yf *getDensity(ivec3{xi+1, yi+1, zim})
+                    + (1.0f - yf)*getDensity(ivec3{xi+1, yi  , zim}))
+                +(1.0f - xf)*(yf *getDensity(ivec3{xi,   yi+1, zim})
+                    + (1.0f - yf)*getDensity(ivec3{xi,   yi  , zim}));
+    float zd2 = xf*(          yf *getDensity(ivec3{xi+1, yi+1, zim+1})
+                    + (1.0f - yf)*getDensity(ivec3{xi+1, yi  , zim+1}))
+                +(1.0f - xf)*(yf *getDensity(ivec3{xi,   yi+1, zim+1})
+                    + (1.0f - yf)*getDensity(ivec3{xi,   yi  , zim+1}));
     res[2] = (zd1 - zd0) * (1.0f - zfm) + (zd2 - zd1) * zfm;
-    if (res[0] != 0 && res[1] != 0 && res[2] != 0){
+    if (res[0] != 0 || res[1] != 0 || res[2] != 0){
         res = normalize(res);
     }
     return res;
@@ -156,14 +156,14 @@ float Voxelizer::getLinearInterpolate(vec3 pos){
     float z0 = (float)fmod(z,1.0);
     float z1 = 1.0f-z0;
 
-    float x000 = getDensityFn(ivec3{x,y,z});
-    float x001 = getDensityFn(ivec3{x,y,z+1});
-    float x010 = getDensityFn(ivec3{x,y+1,z});
-    float x011 = getDensityFn(ivec3{x,y+1,z+1});
-    float x100 = getDensityFn(ivec3{x,y,z});
-    float x101 = getDensityFn(ivec3{x,y,z+1});
-    float x110 = getDensityFn(ivec3{x,y+1,z});
-    float x111 = getDensityFn(ivec3{x,y+1,z+1});
+    float x000 = getDensity(ivec3{x,y,z});
+    float x001 = getDensity(ivec3{x,y,z+1});
+    float x010 = getDensity(ivec3{x,y+1,z});
+    float x011 = getDensity(ivec3{x,y+1,z+1});
+    float x100 = getDensity(ivec3{x,y,z});
+    float x101 = getDensity(ivec3{x,y,z+1});
+    float x110 = getDensity(ivec3{x,y+1,z});
+    float x111 = getDensity(ivec3{x,y+1,z+1});
 
     return ((x000*z0+x001*z1)*y0+(x010*z0+x011*z1)*y1)*x0+
            ((x100*z0+x101*z1)*y0+(x110*z0+x111*z1)*y1)*x1;
@@ -177,27 +177,27 @@ vec3 Voxelizer::getGradientComponentWiseLinear(vec3 pos){
     vec3 res;
     float dist = 0.5f;
     // x
-    int xi = floor(x + dist);
+    int xi = (int) floor(x + dist);
     float xf = x + dist - xi;
-    float xd0 = getDensityFn(ivec3{xi - 1, (int)y, (int)z});
-    float xd1 = getDensityFn(ivec3{xi, (int)y, (int)z});
-    float xd2 = getDensityFn(ivec3{xi + 1, (int)y, (int)z});
+    float xd0 = getDensity(ivec3{xi - 1, (int)y, (int)z});
+    float xd1 = getDensity(ivec3{xi, (int)y, (int)z});
+    float xd2 = getDensity(ivec3{xi + 1, (int)y, (int)z});
     res[0] = (xd1 - xd0) * (1.0f - xf) + (xd2 - xd1) * xf; // lerp
     // y
-    int yi = floor(y + dist);
+    int yi = (int) floor(y + dist);
     float yf = y + dist - yi;
-    float yd0 = getDensityFn(ivec3{(int)x, yi - 1, (int)z});
-    float yd1 = getDensityFn(ivec3{(int)x, yi, (int)z});
-    float yd2 = getDensityFn(ivec3{(int)x, yi + 1, (int)z});
+    float yd0 = getDensity(ivec3{(int)x, yi - 1, (int)z});
+    float yd1 = getDensity(ivec3{(int)x, yi, (int)z});
+    float yd2 = getDensity(ivec3{(int)x, yi + 1, (int)z});
     res[1] = (yd1 - yd0) * (dist - yf) + (yd2 - yd1) * yf; // lerp
     // z
-    int zi = floor(z + dist);
+    int zi = (int) floor(z + dist);
     float zf = z + dist - zi;
-    float zd0 = getDensityFn(ivec3{(int)x, (int)y, zi - 1});
-    float zd1 = getDensityFn(ivec3{(int)x, (int)y, zi});
-    float zd2 = getDensityFn(ivec3{(int)x, (int)y, zi + 1});
+    float zd0 = getDensity(ivec3{(int)x, (int)y, zi - 1});
+    float zd1 = getDensity(ivec3{(int)x, (int)y, zi});
+    float zd2 = getDensity(ivec3{(int)x, (int)y, zi + 1});
     res[2] = (zd1 - zd0) * (1.0f - zf) + (zd2 - zd1) * zf; // lerp
-    if (res[0] != 0 && res[1] != 0 && res[2] != 0){
+    if (res[0] != 0 || res[1] != 0 || res[2] != 0){
         res = normalize(res);
     }
     return res;
@@ -514,6 +514,17 @@ vec3 VertexInterp(float isolevel,vec3 p1,vec3 p2,float valp1,float valp2)
     return p;
 }
 
+float Voxelizer::getDensity(glm::ivec3 p){
+    for (int i=0;i<3;i++){
+        if (p[i]==domainMin[i] && mirrorAxis[i]==-1){
+            p[i]++;
+        } else if (p[i]==domainMax[i]-1 && mirrorAxis[i]==1){
+            p[i]--;
+        }
+    }
+    return getDensityFn(p);
+}
+
 // Based on http://paulbourke.net/geometry/polygonise/
 std::vector<vec3> Voxelizer::march(ivec3 pos){
     std::vector<vec3> res;
@@ -542,14 +553,14 @@ std::vector<vec3> Voxelizer::march(ivec3 pos){
         p011
     };
 
-    float f000 = getDensityFn({ivec3{x+0, y+0, z+0}});
-    float f001 = getDensityFn({ivec3{x+0, y+0, z+1}});
-    float f010 = getDensityFn({ivec3{x+0, y+1, z+0}});
-    float f011 = getDensityFn({ivec3{x+0, y+1, z+1}});
-    float f100 = getDensityFn({ivec3{x+1, y+0, z+0}});
-    float f101 = getDensityFn({ivec3{x+1, y+0, z+1}});
-    float f110 = getDensityFn({ivec3{x+1, y+1, z+0}});
-    float f111 = getDensityFn({ivec3{x+1, y+1, z+1}});
+    float f000 = getDensity({ivec3{x+0, y+0, z+0}});
+    float f001 = getDensity({ivec3{x+0, y+0, z+1}});
+    float f010 = getDensity({ivec3{x+0, y+1, z+0}});
+    float f011 = getDensity({ivec3{x+0, y+1, z+1}});
+    float f100 = getDensity({ivec3{x+1, y+0, z+0}});
+    float f101 = getDensity({ivec3{x+1, y+0, z+1}});
+    float f110 = getDensity({ivec3{x+1, y+1, z+0}});
+    float f111 = getDensity({ivec3{x+1, y+1, z+1}});
 
     float gridCell[] = {
         f000,
@@ -622,38 +633,97 @@ void Voxelizer::getData(std::vector<vec3> &vertexPositions, std::vector<vec3> &v
 
     MCSpacePartition partition{domainMax.x, domainMax.y};
 
-    int reused = 0;
     // get vertexData
-    for (int x=domainMin.x; x<domainMax.x; x++) {
-        for (int y=domainMin.y; y<domainMax.y; y++) {
-            for (int z = domainMin.z; z<domainMax.z; z++) {
+    for (int z = domainMin.z; z<domainMax.z; z++) {
+        for (int x=domainMin.x; x<domainMax.x; x++) {
+            for (int y=domainMin.y; y<domainMax.y; y++) {
+
                 ivec3 p{x,y,z};
+
                 auto createdTriangles = march(p);
 
                 for (auto vertexPosition : createdTriangles){
                     int pos = partition.findPoint(vertexPosition, p);
-                    if (pos >=0){
+                    if (pos >= 0){
                         indices.push_back(pos);
-                        reused++;
                     } else {
                         int newIndex = vertexPositions.size();
                         partition.insertPoint(vertexPosition, newIndex, p);
                         indices.push_back(newIndex);
                         vertexPositions.push_back(vertexPosition);
-                        if (interpolation == Interpolation::ComponentWiseLinear){
-                            vertexNormals.push_back( getGradientComponentWiseLinear(vertexPosition));
-                        } else if (interpolation == Interpolation::Analytic){
-                            // when sphere compute normal by normalizing vertex position
-                            vertexNormals.push_back( normalize(vertexPosition));
-                        } else if (interpolation == Interpolation::Linear){
-                            vertexNormals.push_back( getGradientLinear(vertexPosition));
-                        } else if (interpolation == Interpolation::Sobel){
-                            vertexNormals.push_back( getGradientSobel(vertexPosition));
-                        }
                     }
 
                 }
             }
         }
     }
+
+    computeNormals(vertexPositions, vertexNormals, indices);
 }
+
+void Voxelizer::computeNormals(vector<vec3> &vertexPositions, vector<vec3> &vertexNormals, vector<int> &indices) {
+    if (angleWeightedNormals){
+        computeAngleWeightedNormals(vertexPositions, vertexNormals, indices);
+    } else {
+        for (auto vertexPosition : vertexPositions) {
+            if (interpolation == Interpolation::ComponentWiseLinear) {
+                vertexNormals.push_back(getGradientComponentWiseLinear(vertexPosition));
+            } else if (interpolation == Interpolation::Linear) {
+                vertexNormals.push_back(getGradientLinear(vertexPosition));
+            } else if (interpolation == Interpolation::Sobel) {
+                vertexNormals.push_back(getGradientSobel(vertexPosition));
+            }
+        }
+    }
+}
+
+void Voxelizer::computeAngleWeightedNormals(vector<vec3> &vertexPositions, vector<vec3> &vertexNormals, vector<int> &indices) {
+    assert(vertexNormals.size()==0);
+    vertexNormals.resize (vertexPositions.size(), vec3{0});
+    for (int i=0;i<indices.size();i=i+3){
+        int i1 = indices[i];
+        int i2 = indices[i+1];
+        int i3 = indices[i+2];
+        vec3 p1 = vertexPositions[i1];
+        vec3 p2 = vertexPositions[i2];
+        vec3 p3 = vertexPositions[i3];
+        vec3 p2p1 = p2-p1;
+        vec3 p3p1 = p3-p1;
+        vec3 p3p2 = p3-p2;
+        float p2p1Len = length(p2p1);
+        float p3p1Len = length(p3p1);
+        float p3p2Len = length(p3p2);
+
+        bool skipNeedle = p2p1Len<0.0001f || p3p1Len<0.0001f || p3p2Len<0.0001f ;
+        if (skipNeedle){
+            continue;
+        }
+        // normalize
+        p2p1 = p2p1 / p2p1Len;
+        p3p1 = p3p1 / p3p1Len;
+        p3p2 = p3p2 / p3p2Len;
+
+        vec3 faceNormal = normalize(cross(p2p1, p3p1));
+        float p1Angle = angle(p2p1, p3p1);
+        float p2Angle = angle(-p2p1, p3p2);
+        float p3Angle = 180 - p2Angle - p1Angle;
+        vertexNormals[i1] += faceNormal * p1Angle;
+        vertexNormals[i2] += faceNormal * p2Angle;
+        vertexNormals[i3] += faceNormal * p3Angle;
+    }
+    for (auto & n: vertexNormals){
+        n = normalize(n);
+    }
+}
+
+bool Voxelizer::isAngleWeightedNormals() const {
+    return angleWeightedNormals;
+}
+
+void Voxelizer::setAngleWeightedNormals(bool angleWeightedNormals) {
+    this->angleWeightedNormals = angleWeightedNormals;
+}
+
+void Voxelizer::setInterpolation(Interpolation i) { interpolation = i; }
+
+Interpolation Voxelizer::getInterpolation() { return interpolation; }

@@ -9,6 +9,8 @@
 #include <memory>
 #include <vector>
 #include <cmath>
+#include <glm/gtx/vector_angle.hpp>
+#include <glm/gtx/norm.hpp>
 
 using namespace std;
 using namespace glm;
@@ -29,7 +31,7 @@ void MyWidget::keyPressEvent(QKeyEvent *event){
     if (event->type() == event->Type::KeyPress){
         switch (event->key()){
         case '0':
-            voxelizer->setInterpolation(Interpolation::Analytic);
+        //    voxelizer->setInterpolation(Interpolation::Analytic);
         break;
         case '1':
             voxelizer->setInterpolation(Interpolation::ComponentWiseLinear);
@@ -40,6 +42,8 @@ void MyWidget::keyPressEvent(QKeyEvent *event){
         case '3':
             voxelizer->setInterpolation(Interpolation::Sobel);
         break;
+        case '4':
+            voxelizer->setAngleWeightedNormals(!voxelizer->isAngleWeightedNormals());
         }
         updateData();
     }
@@ -134,6 +138,7 @@ void MyWidget::updateData(){
             points.push_back(vertexNormals[i][j]);
         }
     }
+
     int sizeOfVertex = 6;
     triangels = points.size()/sizeOfVertex;
     glBindVertexArray(vertexArrayObject);
@@ -167,6 +172,12 @@ void MyWidget::updateTitle(){
         }
         title = title + titles[i]+"  ";
     }
+    if (voxelizer->isAngleWeightedNormals()){
+        title = title +"[4] ";
+    } else {
+        title = title +" 4  ";
+    }
+    title = title + "recompute normals";
     QWidget::setWindowTitle(title);
 }
 

@@ -10,12 +10,13 @@
 
 #include <cfloat>
 #include <algorithm>
+#include <glm/gtx/norm.hpp>
 
 using namespace std;
 using namespace glm;
 
-MCSpacePartition::MCSpacePartition(int width, int height, float epsilogDistance)
-:width{width}, height{height},width1{width+1}, height1{height+1}{
+MCSpacePartition::MCSpacePartition(int width, int height, double epsilogDistance)
+:width1{width+1}, height1{height+1}{
     epsilogDistanceSqr = epsilogDistance*epsilogDistance;
     data = new vector<MCPair>[(width1)*(height1)];
 }
@@ -34,9 +35,11 @@ void MCSpacePartition::cleanUp(int z){
 
 void MCSpacePartition::insertPoint(vec3 point, int index, ivec3 voxelIndex){
     data[getIndex(voxelIndex.x, voxelIndex.y)].push_back(MCPair{point, index, voxelIndex.z});
-    if (voxelIndex.z != lastZ){
+    if (voxelIndex.z > lastZ){
         cleanUp(lastZ);
         lastZ = voxelIndex.z;
+    } else if (voxelIndex.z < lastZ){
+        assert(false); // the z order should always be increasing
     }
 }
 
@@ -44,17 +47,14 @@ int MCSpacePartition::getIndex(int x, int y){
     return std::max(0,(x*(width1)+y)%((width1)*(height1)));
 }
 
-float sqrMagnitude(vec3 f){
-    return dot(f,f);
-}
-
 int MCSpacePartition::findPoint(vec3 point, ivec3 voxelIndex){
     int closestPoint = -1;
-    float closestSqrDistance = FLT_MAX;
-    for (int x=0;x<2;x++){
-        for (int y=0;y<2;y++){
+    dvec3 dpoint = (dvec3)point;
+    double closestSqrDistance = FLT_MAX;
+    for (int x=0;x<=1;x++){
+        for (int y=0;y<=1;y++){
             for (const auto& mcPair : data[getIndex(voxelIndex.x-x, voxelIndex.y-y)]){
-                double sqrDist = sqrMagnitude(mcPair.point - point);
+                double sqrDist = distance2((dvec3)mcPair.point, dpoint);
                 if (sqrDist < epsilogDistanceSqr && sqrDist < closestSqrDistance){
                     closestSqrDistance = sqrDist;
                     closestPoint = mcPair.index;
